@@ -74,18 +74,30 @@ impl eframe::App for App {
             ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size / zoom));
             ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos / zoom));
         }
+        // The geometry saved for the next start is the active window's.
         let prev = self.0.ui.window;
+        // Another document window's state is the one it last painted with: the host reports only
+        // the root window's for this frame.
+        let active = self.0.active_viewport();
+        let tracked = if active == egui::ViewportId::ROOT {
+            window
+        } else {
+            ctx.input_for(active, |i| RawWindowState::from_viewport(Some(i.viewport()), Some(i.viewport_rect())))
+                .in_system_points(zoom)
+        };
         if !waiting {
-            self.0.ui.window = WindowGeometry::track(prev, &window);
+            self.0.ui.window = WindowGeometry::track(prev, &tracked);
         }
         // Once the monitor is known and the initial state is acknowledged, rescue the position
         // exactly once.
         if !waiting && let Some(pos) = take_rescue(&mut self.1, &window) {
             ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos / zoom));
         }
-        // The window's close button: with unsaved changes, ask first (`WordApp::close_requested`).
+        // The window's close button: with other windows open only this window closes (the app
+        // handles that while drawing it); the last one quits, asking first about unsaved changes
+        // (`WordApp::close_requested`).
         let closing = ctx.input(|i| i.viewport().close_requested());
-        if closing && !self.0.close_requested() {
+        if closing && (self.0.closes_a_window() || !self.0.close_requested()) {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
         } else if (closing || self.0.quit_requested) && !self.0.printing.busy() {
             // On macOS, letting eframe drop the window inside `-[NSApplication run]` aborts in
@@ -430,6 +442,8 @@ fn main() -> eframe::Result {
     #[cfg(target_os = "macos")]
     graphics::configure_indirect_validation(&mut options, graphics::skips_indirect_validation(true, cfg!(target_arch = "x86_64")));
     load_user_fonts();
+    // Windows opened for further documents start like the first one, before its saved place.
+    let window_builder = options.viewport.clone();
     let restored = saved_window();
     if let Some(window) = restored {
         options.viewport = window.apply(options.viewport);
@@ -481,6 +495,7 @@ fn main() -> eframe::Result {
                 }
             }
             app.ui.window = restored;
+            app.set_window_builder(window_builder);
             app.integrated_titlebar = cfg!(target_os = "macos");
             #[cfg(target_os = "macos")]
             if let Some(bar) = traffic_lights::title_bar() {
