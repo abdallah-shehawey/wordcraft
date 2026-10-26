@@ -82,8 +82,7 @@ impl eframe::App for App {
         let tracked = if active == egui::ViewportId::ROOT {
             window
         } else {
-            ctx.input_for(active, |i| RawWindowState::from_viewport(Some(i.viewport()), Some(i.viewport_rect())))
-                .in_system_points(zoom)
+            ctx.input_for(active, |i| RawWindowState::from_viewport(Some(i.viewport()), Some(i.viewport_rect()))).in_system_points(zoom)
         };
         if !waiting {
             self.0.ui.window = WindowGeometry::track(prev, &tracked);
