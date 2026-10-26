@@ -1,5 +1,7 @@
 # WordCraft roadmap
 
+> **Review follow-up (2026-10-26):** A startup maximize request stops after eight eligible frames when the host does not acknowledge it; normal geometry tracking then resumes, including hosts that report no maximize state. Regression coverage added; parity scores and estimates unchanged.
+
 > **Highlight update:** 2026-10-25 · Highlight shortcut toggles the last chosen colour off when the whole selection has it; explicit colour commands remain setters (#4085). Readiness estimates unchanged.
 
 **Stage: alpha** · next: beta, ~15 points (60% → 75% ready for real work) and ~150–230 h away
@@ -139,6 +141,8 @@ Ranked, to beta (detail and remaining milestones in [docs/roadmap.md](docs/roadm
    (20–30 h).
 
 ## Progress log
+
+- 2026-10-26: A startup maximize request stops after eight eligible frames when the host does not acknowledge it; normal geometry tracking then resumes, including hosts that report no maximize state. Regression coverage added; scores and estimates unchanged.
 
 - 2026-10-26: Windows reopen at their last size, or maximized, at any interface size (such as 150%), and Restore after a maximized restart returns to the last normal size. On GNOME Wayland, where the compositor draws no frame, a native Wayland window (`WORDCRAFT_WAYLAND=1`; by default WordCraft opens through XWayland, where GNOME draws the frame) gets standard minimize, maximize and close buttons. Shared change: storytold/egui#3; checked on Linux only. WordCraft also saves its geometry in system points and asks to maximize only after the first frame is painted.
 - 2026-10-22: View › Window › New Window opens a second window on the document (desktop). The windows are titled `Name:1` and `Name:2` and each keeps its own caret, scroll position, zoom and view; edits and Undo are the document's and show in both. Closing one of them asks nothing; the last one asks about unsaved changes, and quitting asks once per document.
@@ -644,6 +648,7 @@ Footer page-table height and body wrapping are corrected. Other pagination gaps 
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-26 | trivial | A startup maximize request stops after eight eligible frames when the host does not acknowledge it; normal geometry tracking then resumes, including hosts that report no maximize state. Scores and estimates unchanged. |
 | 2026-10-26 | trivial | Progress log: windows reopen at their last size or maximized at any interface size; standard caption buttons on native GNOME Wayland windows, `WORDCRAFT_WAYLAND=1` (storytold/egui#3) |
 | 2026-10-22 | trivial | Progress log: one native window per open document |
 | 2026-10-22 | trivial | Progress log: every open document keeps its own recovery copy |

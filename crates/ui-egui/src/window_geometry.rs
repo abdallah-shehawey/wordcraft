@@ -70,12 +70,29 @@ pub fn usable_zoom(zoom: f32) -> f32 {
 
 /// Keep a saved maximized state through the hidden startup frame. X11 ignores a maximize
 /// request before the window is mapped, so request it only after the first UI pass, and keep
-/// the normal geometry until the host acknowledges it.
-pub fn waiting_for_maximize(saved: Option<WindowGeometry>, painted: bool, window: &RawWindowState) -> (bool, Option<egui::ViewportCommand>) {
+/// the normal geometry until the host acknowledges it. After eight eligible frames, stop asking
+/// and track the window the host actually supplied, including hosts that never report a state.
+pub fn waiting_for_maximize(
+    saved: Option<WindowGeometry>,
+    painted: bool,
+    window: &mut RawWindowState,
+    attempts_left: &mut u8,
+) -> (bool, Option<egui::ViewportCommand>) {
     let waiting = saved.is_some_and(WindowGeometry::maximizes_after_open) && window.maximized != Some(true);
-    let command =
-        (waiting && painted && window.minimized != Some(true) && window.fullscreen != Some(true)).then_some(egui::ViewportCommand::Maximized(true));
-    (waiting, command)
+    if !waiting {
+        return (false, None);
+    }
+    if *attempts_left == 0 {
+        // Otherwise track() would keep the saved maximize flag when the host reports None,
+        // even though the request timed out and this normal rectangle should now be recorded.
+        window.maximized = Some(false);
+        return (false, None);
+    }
+    let eligible = painted && window.minimized != Some(true) && window.fullscreen != Some(true);
+    if eligible {
+        *attempts_left -= 1;
+    }
+    (true, eligible.then_some(egui::ViewportCommand::Maximized(true)))
 }
 
 /// The smallest window restored: the desktop app's minimum inner size.
@@ -334,14 +351,20 @@ mod tests {
         let geometry = WindowGeometry { maximized: true, ..saved() };
         let mut window = raw(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1200.0, 800.0)), egui::vec2(1920.0, 1080.0));
         window.maximized = Some(false);
+        let mut attempts_left = 8;
         if !cfg!(target_os = "macos") {
-            assert_eq!(waiting_for_maximize(Some(geometry), false, &window), (true, None));
-            assert_eq!(waiting_for_maximize(Some(geometry), true, &window), (true, Some(egui::ViewportCommand::Maximized(true))));
+            assert_eq!(waiting_for_maximize(Some(geometry), false, &mut window, &mut attempts_left), (true, None));
+            assert_eq!(attempts_left, 8);
+            assert_eq!(
+                waiting_for_maximize(Some(geometry), true, &mut window, &mut attempts_left),
+                (true, Some(egui::ViewportCommand::Maximized(true)))
+            );
             window.minimized = Some(true);
-            assert_eq!(waiting_for_maximize(Some(geometry), true, &window), (true, None), "startup must not undo a minimize");
+            assert_eq!(waiting_for_maximize(Some(geometry), true, &mut window, &mut attempts_left), (true, None), "startup must not undo a minimize");
+            assert_eq!(attempts_left, 7);
             window.minimized = Some(false);
             window.maximized = Some(true);
-            assert_eq!(waiting_for_maximize(Some(geometry), true, &window), (false, None));
+            assert_eq!(waiting_for_maximize(Some(geometry), true, &mut window, &mut attempts_left), (false, None));
             for _ in 0..100 {
                 assert_eq!(WindowGeometry::track(Some(geometry), &window), Some(geometry));
             }
@@ -349,6 +372,31 @@ mod tests {
             assert_eq!(WindowGeometry::track(Some(geometry), &window), Some(geometry), "an unknown state is not a restore");
             window.maximized = Some(false);
             assert_eq!(WindowGeometry::track(Some(geometry), &window).map(|g| (g.width, g.height, g.maximized)), Some((1200.0, 800.0, false)));
+        }
+    }
+
+    #[test]
+    fn an_unacknowledged_maximize_stops_retrying_and_tracks_normal_geometry() {
+        if cfg!(target_os = "macos") {
+            return;
+        }
+        let geometry = WindowGeometry { maximized: true, ..saved() };
+        for reported in [Some(false), None] {
+            let mut window = raw(egui::Rect::from_min_size(egui::pos2(10.0, 20.0), egui::vec2(1000.0, 600.0)), egui::vec2(1920.0, 1080.0));
+            let mut attempts_left = 8;
+            for _ in 0..8 {
+                window.maximized = reported;
+                assert_eq!(
+                    waiting_for_maximize(Some(geometry), true, &mut window, &mut attempts_left),
+                    (true, Some(egui::ViewportCommand::Maximized(true)))
+                );
+            }
+            for _ in 0..100 {
+                window.maximized = reported;
+                assert_eq!(waiting_for_maximize(Some(geometry), true, &mut window, &mut attempts_left), (false, None));
+                let tracked = WindowGeometry::track(Some(geometry), &window).unwrap();
+                assert_eq!((tracked.width, tracked.height, tracked.maximized), (1000.0, 600.0, false));
+            }
         }
     }
 

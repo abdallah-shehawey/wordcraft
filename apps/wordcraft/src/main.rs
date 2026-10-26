@@ -42,8 +42,8 @@ struct App(
     // The host's answer for this frame. `InputState` still describes the last painted frame on
     // a hidden logic tick.
     RawWindowState,
-    // Interface zoom of the fresh host frame, and whether the first UI pass has painted.
-    (f32, bool),
+    // Interface zoom, whether the first UI pass has painted, and remaining maximize attempts.
+    (f32, bool, u8),
     #[cfg(target_os = "macos")] fmv_macos_events::Inbox,
 );
 
@@ -56,9 +56,9 @@ impl eframe::App for App {
         apple_events::poll(&self.6, &mut self.0, ctx);
         self.0.logic(ctx);
         self.3.show(frame);
-        let window = self.4;
+        let mut window = self.4;
         let zoom = self.5.0;
-        let (waiting, maximize) = waiting_for_maximize(self.1, self.5.1, &window);
+        let (waiting, maximize) = waiting_for_maximize(self.1, self.5.1, &mut window, &mut self.5.2);
         if waiting {
             if let Some(command) = maximize {
                 ctx.send_viewport_cmd(command);
@@ -529,7 +529,7 @@ fn main() -> eframe::Result {
                 key_file,
                 dialogs,
                 RawWindowState::default(),
-                (1.0, false),
+                (1.0, false, 8),
                 #[cfg(target_os = "macos")]
                 apple_events.connect(&cc.egui_ctx),
             )))
