@@ -27,7 +27,7 @@ mod traffic_lights;
 use wordcraft_engine::Session;
 use wordcraft_ui_egui::{
     Services, UiState, WordApp,
-    window_geometry::{RawWindowState, WindowGeometry, take_rescue},
+    window_geometry::{RawWindowState, WindowGeometry, take_rescue, usable_zoom, waiting_for_maximize},
 };
 
 /// The app, the restored window geometry (or, with none, the default: no position) until the
@@ -42,6 +42,8 @@ struct App(
     // The host's answer for this frame. `InputState` still describes the last painted frame on
     // a hidden logic tick.
     RawWindowState,
+    // Interface zoom of the fresh host frame, and whether the first UI pass has painted.
+    (f32, bool),
     #[cfg(target_os = "macos")] fmv_macos_events::Inbox,
 );
 
@@ -51,27 +53,35 @@ impl eframe::App for App {
     /// on unsaved changes and active printing.
     fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         #[cfg(target_os = "macos")]
-        apple_events::poll(&self.5, &mut self.0, ctx);
+        apple_events::poll(&self.6, &mut self.0, ctx);
         self.0.logic(ctx);
         self.3.show(frame);
         let window = self.4;
+        let zoom = self.5.0;
+        let (waiting, maximize) = waiting_for_maximize(self.1, self.5.1, &window);
+        if waiting {
+            if let Some(command) = maximize {
+                ctx.send_viewport_cmd(command);
+            }
+            if window.minimized != Some(true) && window.fullscreen != Some(true) {
+                ctx.request_repaint();
+            }
+        }
         // A window that doesn't fit on its screen (the default size on a laptop) shrinks to fit
         // there, so all of the scroll bar can be dragged (#1215). Checked on the frame that first
         // knows the monitor: the off-screen check below takes the pending geometry then.
         if let Some((pos, size)) = self.1.and_then(|g| g.fit_on_monitor(&window)) {
-            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
-            ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos));
+            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size / zoom));
+            ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos / zoom));
         }
         let prev = self.0.ui.window;
-        self.0.ui.window = WindowGeometry::track(prev, &window);
-        // The first frame, once the monitor is known (as `take_rescue` waits for): maximize a
-        // window that opened at its normal size so it never flashed on screen half-opened.
-        let maximize = self.1.and_then(|g| g.maximize_after_open()).filter(|_| window.monitor_size.is_some());
-        if let Some(pos) = take_rescue(&mut self.1, &window) {
-            ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos));
+        if !waiting {
+            self.0.ui.window = WindowGeometry::track(prev, &window);
         }
-        if let Some(command) = maximize {
-            ctx.send_viewport_cmd(command);
+        // Once the monitor is known and the initial state is acknowledged, rescue the position
+        // exactly once.
+        if !waiting && let Some(pos) = take_rescue(&mut self.1, &window) {
+            ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos / zoom));
         }
         // The window's close button: with unsaved changes, ask first (`WordApp::close_requested`).
         let closing = ctx.input(|i| i.viewport().close_requested());
@@ -98,12 +108,14 @@ impl eframe::App for App {
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw: &mut egui::RawInput) {
         // Keep this frame's native window state. `logic` must not read the last painted
         // `InputState` when a hidden Wayland tick reports no fresh inner rect.
-        self.4 = RawWindowState::from_raw(raw);
+        self.5.0 = usable_zoom(ctx.zoom_factor());
+        self.4 = RawWindowState::from_raw(raw).in_system_points(self.5.0);
         self.0.raw_input_hook(ctx, raw);
     }
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         self.0.ui(ui);
         self.3.show(frame);
+        self.5.1 = true;
     }
     fn on_exit(&mut self) {
         print::finish_pending_jobs();
@@ -503,6 +515,7 @@ fn main() -> eframe::Result {
                 key_file,
                 dialogs,
                 RawWindowState::default(),
+                (1.0, false),
                 #[cfg(target_os = "macos")]
                 apple_events.connect(&cc.egui_ctx),
             )))
