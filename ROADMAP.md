@@ -1,7 +1,5 @@
 # WordCraft roadmap
 
-> **Dependency integration (2026-10-27):** Reconciled the latest upstream module changes and shared `craft-libs` revision `92d392c` while retaining the window-restoration `egui` revision `69750b7` pending storytold/egui#3. Feature readiness estimates are unchanged.
-
 > **Review follow-up (2026-10-26):** A startup maximize request stops after eight eligible frames when the host does not acknowledge it; normal geometry tracking then resumes, including hosts that report no maximize state. Regression coverage added; parity scores and estimates unchanged.
 
 > **Highlight update:** 2026-10-25 · Highlight shortcut toggles the last chosen colour off when the whole selection has it; explicit colour commands remain setters (#4085). Readiness estimates unchanged.
@@ -318,6 +316,7 @@ Imported Word 97–2003 `.doc`/`.dot` files now ask for a supported DOCX target 
 | 2026-10-17 | Non-overlapping body floating tables clear header tables. Original native controls distinguish never-overlap from allowed overlap. |
 | 2026-10-14 | Comment text being typed is no longer lost or misplaced (#1348): an edit or reply the document refuses (for example read-only protection) keeps the typed text in its field and says why on the status line; drafts belong to their document, so after New or Open a comment with the same number shows its own text; Save, Export, Print, Close, New and Open write pending comment text first; if the document refuses it, Save, Export and Print carry on with the stored comments and show why on the status line (a refused draft is dropped when Save is the only change), while Close, New and Open show the Save Changes prompt (Don't Save drops text the document refuses); Escape discards what was typed; in a document protected as read only or for forms the comment fields can't be typed in |
 |---|---|
+| 2026-10-27 | Reconcile the current upstream modules and craft-libs `92d392c` while retaining the window-restoration egui pin `69750b7`; feature readiness estimates are unchanged. |
 | 2026-10-18 | Explicit New/Open keeps the requested document visible when startup recovery discovery finishes; older copies stay available. Recover uses the regular theme. See docs/recovery.md. |
 | 2026-10-15 | A floating picture or shape in a table cell set to align centre or bottom no longer lands half its height above its line (#1887); it starts at the anchor line |
 | 2026-10-18 | Picture Format › Size (#2573): width and height in the interface unit, and a size typed in any unit works, pixels too (`300 px` keeps the picture's proportions, #1901), applied once typed (Enter, Tab or a click elsewhere; Esc cancels) in one undo step. The group's launcher opens a Size dialog: height and width, scale of the original size (or of the size it opened with), Lock aspect ratio, the original size with its pixels, and Reset. `picture.size {"original": true, "scale"?}` sizes from the original; sizes past 4000 pt that keep the proportions shrink as a whole. |
@@ -650,6 +649,7 @@ Footer page-table height and body wrapping are corrected. Other pagination gaps 
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-27 | trivial | Reconcile the current upstream modules and craft-libs `92d392c` while retaining the window-restoration egui pin `69750b7`; feature readiness estimates are unchanged. |
 | 2026-10-26 | trivial | A startup maximize request stops after eight eligible frames when the host does not acknowledge it; normal geometry tracking then resumes, including hosts that report no maximize state. Scores and estimates unchanged. |
 | 2026-10-26 | trivial | Progress log: windows reopen at their last size or maximized at any interface size; standard caption buttons on native GNOME Wayland windows, `WORDCRAFT_WAYLAND=1` (storytold/egui#3) |
 | 2026-10-22 | trivial | Progress log: one native window per open document |
