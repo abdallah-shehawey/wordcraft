@@ -21,6 +21,9 @@
 real_name = "Divyanshu Gupta"
 sync_github_name = true
 
+[people.abdallah-shehawey]
+sync_github_name = true
+
 [people.lokinmodar]
 sync_github_name = true
 
@@ -181,6 +184,3 @@ sync_github_name = true
 
 [people.pakiat]
 display_name = "OtorO"
-
-[people.abdallah-shehawey]
-sync_github_name = true
